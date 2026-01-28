@@ -1,16 +1,9 @@
 {
   "name": "watch-party-server",
   "version": "1.0.0",
-  "description": "WebSocket-based watch party server with rooms, passwords, and host controls",
   "type": "module",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "ws": "^8.16.0"
-  }
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "ws": "^8.16.0" },
+  "engines": { "node": ">=18" }
 }
