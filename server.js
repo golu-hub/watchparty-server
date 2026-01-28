@@ -5,15 +5,16 @@ const server = http.createServer();
 const wss = new WebSocketServer({ server });
 
 /*
+rooms structure:
 roomName -> {
-  password,
-  videoId,
-  time,
-  isPlaying,
-  lastUpdate,
-  host,
-  subhosts: Set,
-  users: Map(ws -> username)
+  password: string,
+  videoId: string|null,
+  time: number,
+  isPlaying: boolean,
+  lastUpdate: number,
+  host: string,
+  subhosts: Set<string>,
+  users: Map<ws, username>
 }
 */
 const rooms = {};
@@ -26,11 +27,10 @@ wss.on("connection", (ws) => {
     // ===== JOIN ROOM =====
     if (msg.type === "join") {
       const { room, password, user } = msg;
-
       ws.room = room;
       ws.user = user;
 
-      // Create room
+      // Create new room if it doesn't exist
       if (!rooms[room]) {
         rooms[room] = {
           password,
@@ -46,15 +46,14 @@ wss.on("connection", (ws) => {
 
       // Password check
       if (rooms[room].password !== password) {
-        ws.send(JSON.stringify({
-          type: "error",
-          message: "Invalid room password"
-        }));
+        ws.send(JSON.stringify({ type: "error", message: "Invalid room password" }));
         ws.close();
         return;
       }
 
+      // Add user
       rooms[room].users.set(ws, user);
+
       sendSync(ws);
       broadcastUsers(room);
     }
@@ -73,23 +72,17 @@ wss.on("connection", (ws) => {
       room.isPlaying = false;
       room.lastUpdate = Date.now();
 
-      broadcast(ws.room, {
-        type: "changeVideo",
-        videoId: msg.videoId
-      });
+      broadcast(ws.room, { type: "video", videoId: msg.videoId });
     }
 
     // ===== PLAY =====
     if (msg.type === "play" && canControl(ws)) {
       const room = rooms[ws.room];
-      room.time = msg.time;
+      room.time = correctedTime(room);
       room.isPlaying = true;
       room.lastUpdate = Date.now();
 
-      broadcast(ws.room, {
-        type: "play",
-        time: correctedTime(room)
-      });
+      broadcast(ws.room, { type: "play", time: room.time });
     }
 
     // ===== PAUSE =====
@@ -99,7 +92,7 @@ wss.on("connection", (ws) => {
       room.isPlaying = false;
       room.lastUpdate = Date.now();
 
-      broadcast(ws.room, { type: "pause" });
+      broadcast(ws.room, { type: "pause", time: room.time });
     }
   });
 
@@ -109,7 +102,7 @@ wss.on("connection", (ws) => {
 
     room.users.delete(ws);
 
-    // Host leaves → promote next user
+    // If host left, promote next user
     if (room.host === ws.user) {
       room.host = [...room.users.values()][0] || null;
     }
@@ -124,7 +117,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-// ---------- HELPERS ----------
+// ---------- Helpers ----------
 
 function isHost(ws) {
   return rooms[ws.room]?.host === ws.user;
@@ -143,12 +136,13 @@ function correctedTime(room) {
 function sendSync(ws) {
   const room = rooms[ws.room];
   ws.send(JSON.stringify({
-    type: "sync",
+    type: "state",
     videoId: room.videoId,
     time: correctedTime(room),
-    isPlaying: room.isPlaying,
+    playing: room.isPlaying,
     host: room.host,
-    subhosts: [...room.subhosts]
+    subhosts: [...room.subhosts],
+    users: [...room.users.values()]
   }));
 }
 
@@ -162,15 +156,9 @@ function broadcast(roomName, msg) {
 
 function broadcastUsers(roomName) {
   const room = rooms[roomName];
-  broadcast(roomName, {
-    type: "users",
-    users: [...room.users.values()],
-    host: room.host,
-    subhosts: [...room.subhosts]
-  });
+  const users = [...room.users.values()];
+  broadcast(roomName, { type: "users", users, host: room.host, subhosts: [...room.subhosts] });
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () =>
-  console.log("Watch Party server running")
-);
+server.listen(PORT, () => console.log(`Watch Party server running o
