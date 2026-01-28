@@ -35,7 +35,6 @@ wss.on("connection", (ws) => {
       }
 
       rooms[room].users.set(ws, user);
-
       sendSync(ws);
       broadcastUsers(room);
     }
@@ -51,7 +50,6 @@ wss.on("connection", (ws) => {
       room.time = 0;
       room.isPlaying = false;
       room.lastUpdate = Date.now();
-
       broadcast(ws.room, { type: "video", videoId: msg.videoId });
     }
 
@@ -60,7 +58,6 @@ wss.on("connection", (ws) => {
       room.time = correctedTime(room);
       room.isPlaying = true;
       room.lastUpdate = Date.now();
-
       broadcast(ws.room, { type: "play", time: room.time });
     }
 
@@ -69,7 +66,6 @@ wss.on("connection", (ws) => {
       room.time = correctedTime(room);
       room.isPlaying = false;
       room.lastUpdate = Date.now();
-
       broadcast(ws.room, { type: "pause", time: room.time });
     }
   });
@@ -134,5 +130,5 @@ function broadcastUsers(roomName) {
   broadcast(roomName, { type: "users", users, host: room.host, subhosts: [...room.subhosts] });
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`Watch Party server running on port ${PORT}`));
